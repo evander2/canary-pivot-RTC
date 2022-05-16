@@ -207,11 +207,7 @@ p.interactive()
 
 ## 3 rop_master
 
-16만큼의 bof가 나기 때문에 ret 주소까지밖에 덮을 수 없으므로 다른 방식으로 rop를 진행해야 한다. stack에는 NX bit로 인해 실행 권한이 없으므로 name이 저장된 data 영역에 fake stack을 구성한다. fake stack에서 write함수를 통해 write함수를 구해 와야 하는데, pop_rdx gadget이 바이너리에 없으므로 return to csu 기법을 이용해야 한다. rtc를 이용하여 r
-
-
-
-read, write, name
+16만큼의 bof가 나기 때문에 ret 주소까지밖에 덮을 수 없으므로 다른 방식으로 rop를 진행해야 한다. stack에는 NX bit로 인해 실행 권한이 없으므로 name이 저장된 data 영역에 fake stack을 구성한다. fake stack에서 write함수를 통해 write함수를 구해 와야 하는데, pop_rdx gadget이 바이너리에 없으므로 return to csu 기법을 이용해야 한다. rtc를 이용하여 gadget을 설정하여 write함수의 주소를 구해올 수 있다. stack pivoting을 진행하고 main으로 다시 돌아간 뒤 libc_leak을 하여 얻어낸 system_addr와 binsh를 이용하여 rtl을 하는 payload를 작성한다. 3회 main으로 돌아가면 쉘을 얻을 수 있다.
 
 
 
@@ -221,8 +217,6 @@ from pwn import *
 p = process('./rop_master')
 e = ELF('./rop_master')
 libc = e.libc
-
-bss = e.bss() + 0x400
 
 csu1 = 0x4005f0
 csu2 = 0x400606
