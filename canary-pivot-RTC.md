@@ -207,8 +207,7 @@ p.interactive()
 
 ## 3 rop_master
 
-16만큼의 bof가 나기 때문에 ret 주소까지밖에 덮을 수 없으므로 다른 방식으로 rop를 진행해야 한다. stack에는 NX bit로 인해 실행 권한이 없으므로 name이 저장된 data 영역에 fake stack을 구성한다. fake stack에서 write함수를 통해 write함수를 구해 와야 하는데, pop_rdx gadget이 바이너리에 없으므로 return to csu 기법을 이용해야 한다. rtc를 이용하여 gadget을 설정하여 write(1, write_got, 8)을 실행할 수 있다. 또한 이후에 read(0, bss, 32)를 이용하여 입력을 받도록 하고 system('/bin/sh')를 호출하는 payload를 입력한다. bss에 payload를 입력하는  bss 영역에 stack pivoting을 진행한다. 
-
+16만큼의 bof가 나기 때문에 ret 주소까지밖에 덮을 수 없으므로 다른 방식으로 rop를 진행해야 한다. stack에는 NX bit로 인해 실행 권한이 없으므로 name이 저장된 data 영역에 fake stack을 구성한다. fake stack에서 write함수를 통해 write함수를 구해 와야 하는데, pop_rdx gadget이 바이너리에 없으므로 return to csu 기법을 이용해야 한다. rtc를 이용하여 gadget을 설정하여 write(1, write_got, 8)을 실행할 수 있다. 또한 이후에 read(0, bss+24, 32)를 이용하여 입력을 받도록 하고 system('/bin/sh')를 호출하는 payload를 입력한다. bss+24에 입력을 받는 이유는 stack pivoting으로 함수를 실행할 때 pop_rsp_pop3_ret 가젯을 이용하기 때문에 24를 더했다. bss 영역에 stack pivoting을 수행하면 된다.
 
 
 ```python
@@ -247,7 +246,7 @@ payload += p64(write_got) #r14->rsi
 payload += p64(8) #r15->rdx
 payload += p64(csu1)
 
-#2 read(0, bss, 32) by rtc
+#2 read(0, bss+24, 32) by rtc
 payload += b'C'*0x8
 payload += p64(0) #rbx
 payload += p64(1) #rbp
